@@ -4352,6 +4352,8 @@ func (j *MessageReceipt) MarshalJSONBuf(buf fflib.EncodingBuffer) error {
 	fflib.WriteJsonString(buf, string(j.Id))
 	buf.WriteString(`,"ErrorMessage":`)
 	fflib.WriteJsonString(buf, string(j.ErrorMessage))
+	buf.WriteString(`,"Partition":`)
+	fflib.WriteJsonString(buf, string(j.Partition))
 	buf.WriteByte('}')
 	return nil
 }
@@ -4363,11 +4365,15 @@ const (
 	ffjtMessageReceiptId
 
 	ffjtMessageReceiptErrorMessage
+
+	ffjtMessageReceiptPartition
 )
 
 var ffjKeyMessageReceiptId = []byte("Id")
 
 var ffjKeyMessageReceiptErrorMessage = []byte("ErrorMessage")
+
+var ffjKeyMessageReceiptPartition = []byte("Partition")
 
 // UnmarshalJSON umarshall json - template of ffjson
 func (j *MessageReceipt) UnmarshalJSON(input []byte) error {
@@ -4446,6 +4452,20 @@ mainparse:
 						goto mainparse
 					}
 
+				case 'P':
+
+					if bytes.Equal(ffjKeyMessageReceiptPartition, kn) {
+						currentKey = ffjtMessageReceiptPartition
+						state = fflib.FFParse_want_colon
+						goto mainparse
+					}
+
+				}
+
+				if fflib.SimpleLetterEqualFold(ffjKeyMessageReceiptPartition, kn) {
+					currentKey = ffjtMessageReceiptPartition
+					state = fflib.FFParse_want_colon
+					goto mainparse
 				}
 
 				if fflib.EqualFoldRight(ffjKeyMessageReceiptErrorMessage, kn) {
@@ -4482,6 +4502,9 @@ mainparse:
 
 				case ffjtMessageReceiptErrorMessage:
 					goto handle_ErrorMessage
+
+				case ffjtMessageReceiptPartition:
+					goto handle_Partition
 
 				case ffjtMessageReceiptnosuchkey:
 					err = fs.SkipField(tok)
@@ -4542,6 +4565,32 @@ handle_ErrorMessage:
 			outBuf := fs.Output.Bytes()
 
 			j.ErrorMessage = string(string(outBuf))
+
+		}
+	}
+
+	state = fflib.FFParse_after_value
+	goto mainparse
+
+handle_Partition:
+
+	/* handler: j.Partition type=string kind=string quoted=false*/
+
+	{
+
+		{
+			if tok != fflib.FFTok_string && tok != fflib.FFTok_null {
+				return fs.WrapErr(fmt.Errorf("cannot unmarshal %s into Go value for string", tok))
+			}
+		}
+
+		if tok == fflib.FFTok_null {
+
+		} else {
+
+			outBuf := fs.Output.Bytes()
+
+			j.Partition = string(string(outBuf))
 
 		}
 	}

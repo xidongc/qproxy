@@ -37,6 +37,7 @@ func New(conf *config.Config, mets metrics.QProxyMetrics) (*Backend, error) {
 			MaxConnsPerHost:     conf.MaxConnsPerHost,
 		},
 	}
+	// TODO add more config eg: https://docs.aws.amazon.com/sdk-for-go/api/aws/#Config
 	cfg := &aws.Config{
 		Region:     aws.String(conf.Region),
 		HTTPClient: client,
@@ -162,7 +163,7 @@ func (s *Backend) ListQueues(in *rpc.ListQueuesRequest, stream rpc.QProxy_ListQu
 	buf := make([]*rpc.QueueId, 0, 100)
 	input := &sqs.ListQueuesInput{
 		MaxResults:      aws.Int64(1000),
-		QueueNamePrefix: &in.Namespace,
+		QueueNamePrefix:  &in.Namespace,
 	}
 	ctx := stream.Context()
 	var queues []*string
@@ -337,6 +338,8 @@ func (s *Backend) AckMessages(ctx context.Context, in *rpc.AckMessagesRequest) (
 	return &rpc.AckMessagesResponse{Failed: failed}, nil
 }
 
+// long polling docs:
+// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-short-and-long-polling.html#sqs-long-polling
 func (s *Backend) GetMessages(ctx context.Context, in *rpc.GetMessagesRequest) (*rpc.GetMessagesResponse, error) {
 	url, err := s.GetQueueUrl(ctx, in.QueueId)
 	if err != nil {

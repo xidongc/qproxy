@@ -134,6 +134,7 @@ message PurgeQueueResponse {
 message MessageReceipt {
   string Id = 1;
   string ErrorMessage = 2;
+  string Partition = 3;
 }
 
 message FailedPublish {

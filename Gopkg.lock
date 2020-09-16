@@ -55,6 +55,14 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
+  digest = "1:29c5e0b5357d9855d3a22b5dd2bacdea0cd5674c1aaae9c329cfb14fed0250b8"
+  name = "github.com/confluentinc/confluent-kafka-go"
+  packages = ["kafka/librdkafka"]
+  pruneopts = "UT"
+  revision = "bb5bb31194f8046f3c9f09fbf0a3aae460a02000"
+  version = "v1.4.2"
+
+[[projects]]
   branch = "master"
   digest = "1:8c3f44b655a82b7621e8dbc6f0ab46560151686b0f97714935e0df66780f7597"
   name = "github.com/favadi/protoc-go-inject-tag"
@@ -140,6 +148,14 @@
   revision = "c2b33e84"
 
 [[projects]]
+  digest = "1:09cb61dc19af93deae01587e2fdb1c081e0bf48f1a5ad5fa24f48750dc57dce8"
+  name = "github.com/konsorten/go-windows-terminal-sequences"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "edb144dfd453055e1e49a3d8b410a660b5a87613"
+  version = "v1.0.3"
+
+[[projects]]
   digest = "1:ff5ebae34cfbf047d505ee150de27e60570e8c394b3b8fdbb720ff6ac71985fc"
   name = "github.com/matttproud/golang_protobuf_extensions"
   packages = ["pbutil"]
@@ -214,6 +230,14 @@
   ]
   pruneopts = "UT"
   revision = "b1a0a9a36d7453ba0f62578b99712f3a6c5f82d1"
+
+[[projects]]
+  digest = "1:05eebdd5727fea23083fce0d98d307d70c86baed644178e81608aaa9f09ea469"
+  name = "github.com/sirupsen/logrus"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "60c74ad9be0d874af0ab0daef6ab07c5c5911f0d"
+  version = "v1.6.0"
 
 [[projects]]
   branch = "master"
@@ -310,6 +334,14 @@
   version = "v1.16.0"
 
 [[projects]]
+  digest = "1:18812cf52c2e73491bf74d2a85e51bd1ce371327b9a0e49762c80c505dfe591d"
+  name = "gopkg.in/confluentinc/confluent-kafka-go.v1"
+  packages = ["kafka"]
+  pruneopts = "UT"
+  revision = "bb5bb31194f8046f3c9f09fbf0a3aae460a02000"
+  version = "v1.4.2"
+
+[[projects]]
   digest = "1:342378ac4dcb378a5448dd723f0784ae519383532f5e70ade24132c4c8693202"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
@@ -340,6 +372,7 @@
     "github.com/pquerna/ffjson/fflib/v1",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
+    "github.com/sirupsen/logrus",
     "golang.org/x/net/context",
     "google.golang.org/genproto/googleapis/api/annotations",
     "google.golang.org/grpc",
@@ -348,6 +381,7 @@
     "google.golang.org/grpc/metadata",
     "google.golang.org/grpc/reflection",
     "google.golang.org/grpc/status",
+    "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
