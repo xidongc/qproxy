@@ -4,18 +4,24 @@ import (
 	"context"
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"github.com/wish/qproxy/backends/sqs"
 	"github.com/wish/qproxy/config"
 	metrics "github.com/wish/qproxy/metrics"
 	"github.com/wish/qproxy/rpc"
 	"gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
+	"os"
 	"strconv"
+	"time"
 )
 
 type Backend struct {
 
-	consumer kafka.Consumer
-	producer kafka.Producer
+	consumer *kafka.Consumer
+	producer *kafka.Producer
+	admin 	 *kafka.AdminClient
 
+	DefaultNumParts      int  // Default Number of Partitions in a topic
+	DefaultNumReplicas   int  // Default Number of Replicas for each topic
 	m metrics.QProxyMetrics
 }
 
@@ -30,6 +36,49 @@ func New(conf *config.Config, mets metrics.QProxyMetrics) (*Backend, error) {
 
 	}
 	return &backend, nil
+}
+
+// create kafka topic
+func (s *Backend) CreateQueue(ctx context.Context, in *rpc.CreateQueueRequest) (*rpc.CreateQueueResponse, error) {
+	maxDur, err := time.ParseDuration("60s")
+	if err != nil {
+		panic("ParseDuration(60s)")
+	}
+	queueName := sqs.QueueIdToName(in.Id)
+	numParts := s.DefaultNumParts
+	replicationFactor := s.DefaultNumReplicas
+	if partitions, ok := in.Attributes["Partitions"]; ok {
+		numParts, err = strconv.Atoi(partitions)
+	}
+	if replications, ok := in.Attributes["Replicas"]; ok {
+		replicationFactor, err = strconv.Atoi(replications)
+	}
+	if numParts < replicationFactor {
+		log.Warning("replicas larger than partitions, set equal")
+		numParts = replicationFactor
+	}
+
+	results, err := s.admin.CreateTopics(
+		ctx,
+		// Multiple topics can be created simultaneously
+		// by providing more TopicSpecification structs here.
+		[]kafka.TopicSpecification{{
+			Topic:             *queueName,
+			NumPartitions:      numParts,
+			ReplicationFactor:  replicationFactor}},
+		// Admin options
+		kafka.SetAdminOperationTimeout(maxDur))
+	if err != nil {
+		fmt.Printf("Failed to create topic: %v\n", err)
+		os.Exit(1)
+	}
+
+	for _, result := range results {
+		if result.Error.Code() != kafka.ErrNoError {
+			return nil, result.Error
+		}
+	}
+	return &rpc.CreateQueueResponse{}, nil
 }
 
 func (s *Backend) PublishMessages(ctx context.Context, in *rpc.PublishMessagesRequest) (*rpc.PublishMessagesResponse, error){
