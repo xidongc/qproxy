@@ -3,6 +3,7 @@ package qproxy
 import (
 	"context"
 	"fmt"
+	"github.com/wish/qproxy/backends/kafka"
 	"log"
 	"time"
 
@@ -38,6 +39,12 @@ func NewServer(conf *config.Config) (*QProxyServer, error) {
 		server.backend = backend
 	case config.Pubsub:
 		return nil, fmt.Errorf("Pubsub not implemented yet")
+	case config.Kafka:
+		backend, err := kafka.New(conf, m)
+		if err != nil {
+			return nil, err
+		}
+		server.backend = backend
 	default:
 		return nil, fmt.Errorf("No backend queueing system specified. Please specify a backend")
 	}

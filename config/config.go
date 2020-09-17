@@ -10,6 +10,7 @@ import (
 const (
 	SQS    string = "sqs"
 	Pubsub string = "pubsub"
+	Kafka  string = "kafka"
 )
 
 type Config struct {
