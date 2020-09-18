@@ -39,8 +39,8 @@ type Config struct {
 	Servers              string  `long:"servers" description:"kafka servers to connect" default:"localhost"`
 	QueueStrategy 	     string  `long:"strategy" description:"kafka queue strategy to use" default:"fifo"`
 	AdminTimeoutSeconds  int     `long:"admintimeout" description:"admin timeout in seconds" default:"60"`
-	DefaultNumParts	     int     `long:"parts" description:"partitions number for each topic" default:"3"`
-	DefaultNumReplicas   int     `long:"replicas" description:"replicas number for each topic" default:"3"`
+	DefaultNumParts	     int     `long:"parts" description:"partitions number for each topic" default:"1"`
+	DefaultNumReplicas   int     `long:"replicas" description:"replicas number for each topic" default:"1"`
 }
 
 func ParseConfig() *Config {

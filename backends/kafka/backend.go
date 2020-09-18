@@ -12,7 +12,6 @@ import (
 	confluent "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 	_ "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka/librdkafka"
 	"io"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -147,7 +146,6 @@ func (s *Backend) collectMetrics(metricsNamespace string) {
 	}
 }
 
-
 // create confluent topic
 func (s *Backend) CreateQueue(ctx context.Context, in *rpc.CreateQueueRequest) (resp *rpc.CreateQueueResponse, err error) {
 	maxDur := time.Duration(s.adminTimeoutSeconds) * time.Second
@@ -183,7 +181,7 @@ func (s *Backend) CreateQueue(ctx context.Context, in *rpc.CreateQueueRequest) (
 		confluent.SetAdminOperationTimeout(maxDur))
 	if err != nil {
 		fmt.Printf("Failed to create topic: %v\n", err)
-		os.Exit(1)
+		return nil, err
 	}
 
 	for _, result := range results {
@@ -245,13 +243,13 @@ func (s *Backend) GetQueue(ctx context.Context, in *rpc.GetQueueRequest) (*rpc.G
 // public messages
 func (s *Backend) PublishMessages(ctx context.Context, in *rpc.PublishMessagesRequest) (*rpc.PublishMessagesResponse, error){
 	resp := &rpc.PublishMessagesResponse{}
-	topic := in.QueueId.String() // use queue id as topic
+	topic := sqs.QueueIdToName(in.QueueId)
 	deliveryChan := make(chan confluent.Event, len(in.Messages))
 	failed := make([]*rpc.FailedPublish, 0)
 	for _, message := range in.Messages {
 		msg := &confluent.Message{
 			TopicPartition: confluent.TopicPartition{
-				Topic:     &topic,
+				Topic:     topic,
 				Partition: confluent.PartitionAny,
 			},
 			Value: []byte(message.Data),
@@ -287,7 +285,7 @@ func (s *Backend) PublishMessages(ctx context.Context, in *rpc.PublishMessagesRe
 func (s *Backend) AckMessages(ctx context.Context, in *rpc.AckMessagesRequest) (*rpc.AckMessagesResponse, error){
 	resp := &rpc.AckMessagesResponse{}
 	failed := make([]*rpc.MessageReceipt, 0)
-	topic := in.QueueId.String()
+	topic := sqs.QueueIdToName(in.QueueId)
 	commitOffset := make([]confluent.TopicPartition, len(in.Receipts))
 	// use queue id as topic
 	for i, receipt := range in.Receipts {
@@ -297,7 +295,7 @@ func (s *Backend) AckMessages(ctx context.Context, in *rpc.AckMessagesRequest) (
 			log.Error("parse int32 error", err)
 		}
 		commitOffset[i] = confluent.TopicPartition{
-			Topic:     &topic,
+			Topic:     topic,
 			Partition: int32(partition),
 			Offset:    confluent.Offset(offset),
 			Metadata:  nil,
@@ -325,7 +323,7 @@ func (s *Backend) AckMessages(ctx context.Context, in *rpc.AckMessagesRequest) (
 // get messages in long polling
 func (s *Backend) GetMessages(ctx context.Context, in *rpc.GetMessagesRequest) (*rpc.GetMessagesResponse, error) {
 	resp := &rpc.GetMessagesResponse{}
-	err := s.consumer.SubscribeTopics([]string{in.QueueId.String()}, nil)
+	err := s.consumer.SubscribeTopics([]string{*sqs.QueueIdToName(in.QueueId)}, nil)
 	if err != nil {
 		log.Error("subscribe topic ", err)
 		return nil, err
@@ -338,6 +336,7 @@ func (s *Backend) GetMessages(ctx context.Context, in *rpc.GetMessagesRequest) (
 		if err == nil {
 			fmt.Printf("Message on %s: %s\n", msg.TopicPartition, string(msg.Value))
 		} else {
+			// TODO
 			// The client will automatically try to recover from all errors.
 			fmt.Printf("Consumer error: %v (%v)\n", err, msg)
 			return nil, err
@@ -373,6 +372,7 @@ func (s *Backend) ModifyQueue(ctx context.Context, in *rpc.ModifyQueueRequest) (
 }
 
 // purge queue following steps in https://stackoverflow.com/questions/16284399/purge-confluent-topic
+// TODO recreate failed
 func (s *Backend) PurgeQueue(ctx context.Context, in *rpc.PurgeQueueRequest) (*rpc.PurgeQueueResponse, error) {
 	err := s.consumer.Pause([]confluent.TopicPartition{
 		{
