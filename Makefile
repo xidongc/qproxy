@@ -11,20 +11,20 @@ DIRTY   := $(shell git diff-index --quiet HEAD 2> /dev/null > /dev/null || echo 
 
 GOFILES := $(shell find . -type f | grep go$$ ) rpc/qproxy.pb_ffjson.go rpc/qproxy.pb_jsonpb.go
 
-default: build/qproxy.linux
+default: build/qproxy.darwin
 
 build/qproxy.linux: ${GOFILES}
 	@echo "$@"
-	@GOOS=linux CGO_ENABLED=0 go build -o build/qproxy.linux -ldflags\
-		"-X github.com/wish/qproxy.Version=$(VERSION)$(V_DIRTY) \
-		 -X github.com/wish/qproxy.Git=$(GIT)$(DIRTY)" \
+	@GOOS=linux go build -o build/qproxy.linux -ldflags\
+		"-X github.com/xidongc/qproxy.Version=$(VERSION)$(V_DIRTY) \
+		 -X github.com/xidongc/qproxy.Git=$(GIT)$(DIRTY)" \
 		github.com/wish/qproxy/cmd/qproxy
 
 build/qproxy.darwin: ${GOFILES}
 	@echo "$@"
-	@GOOS=darwin CGO_ENABLED=0 go build -o build/qproxy.darwin -ldflags\
-		"-X github.com/wish/qproxy.Version=$(VERSION)$(V_DIRTY) \
-		 -X github.com/wish/qproxy.Git=$(GIT)$(DIRTY)" \
+	@GOOS=darwin go build -o build/qproxy.darwin -ldflags\
+		"-X github.com/xidongc/qproxy.Version=$(VERSION)$(V_DIRTY) \
+		 -X github.com/xidongc/qproxy.Git=$(GIT)$(DIRTY)" \
 		github.com/wish/qproxy/cmd/qproxy
 
 # all .go files are deps, so these are fine specified as such:

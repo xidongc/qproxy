@@ -8,7 +8,8 @@ import (
 	"github.com/wish/qproxy/config"
 	metrics "github.com/wish/qproxy/metrics"
 	"github.com/wish/qproxy/rpc"
-	"gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
+	confluent "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
+	_ "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka/librdkafka"
 	"os"
 	"strconv"
 	"strings"
@@ -17,9 +18,9 @@ import (
 
 type Backend struct {
 
-	consumer *kafka.Consumer
-	producer *kafka.Producer
-	admin 	 *kafka.AdminClient
+	consumer *confluent.Consumer
+	producer *confluent.Producer
+	admin 	 *confluent.AdminClient
 
 	DefaultNumParts      int  // Default Number of Partitions in a topic
 	DefaultNumReplicas   int  // Default Number of Replicas for each topic
@@ -30,7 +31,7 @@ type Backend struct {
 }
 
 func New(conf *config.Config, mets metrics.QProxyMetrics) (*Backend, error) {
-	_ = kafka.ConfigMap{
+	_ = confluent.ConfigMap{
 		"enable.idempotence": 	 true,
 		"bootstrap.servers": 	 conf.Region,  // required, use region for now, TODO
 		"group.id":          	 "myGroup",  // required
@@ -45,7 +46,7 @@ func New(conf *config.Config, mets metrics.QProxyMetrics) (*Backend, error) {
 	return &backend, nil
 }
 
-// create kafka topic
+// create confluent topic
 func (s *Backend) CreateQueue(ctx context.Context, in *rpc.CreateQueueRequest) (resp *rpc.CreateQueueResponse, err error) {
 	maxDur := time.Duration(s.adminTimeoutSeconds) * time.Second
 	queueName := sqs.QueueIdToName(in.Id)
@@ -72,31 +73,31 @@ func (s *Backend) CreateQueue(ctx context.Context, in *rpc.CreateQueueRequest) (
 		ctx,
 		// Multiple topics can be created simultaneously
 		// by providing more TopicSpecification structs here.
-		[]kafka.TopicSpecification{{
+		[]confluent.TopicSpecification{{
 			Topic:             *queueName,
 			NumPartitions:      numParts,
 			ReplicationFactor:  replicationFactor}},
 		// Admin options
-		kafka.SetAdminOperationTimeout(maxDur))
+		confluent.SetAdminOperationTimeout(maxDur))
 	if err != nil {
 		fmt.Printf("Failed to create topic: %v\n", err)
 		os.Exit(1)
 	}
 
 	for _, result := range results {
-		if result.Error.Code() != kafka.ErrNoError {
+		if result.Error.Code() != confluent.ErrNoError {
 			return nil, result.Error
 		}
 	}
 	return &rpc.CreateQueueResponse{}, nil
 }
 
-// delete kafka topic
+// delete confluent topic
 func (s *Backend) DeleteQueue(ctx context.Context, in *rpc.DeleteQueueRequest) (*rpc.DeleteQueueResponse, error) {
 	topics := make([]string, 1)
 	topics[0] = *sqs.QueueIdToName(in.Id)
 	maxDur := time.Duration(s.adminTimeoutSeconds) * time.Second
-	results, err := s.admin.DeleteTopics(ctx, topics, kafka.SetAdminOperationTimeout(maxDur))
+	results, err := s.admin.DeleteTopics(ctx, topics, confluent.SetAdminOperationTimeout(maxDur))
 	if err != nil {
 		log.Error(err)
 		return nil, err
@@ -110,9 +111,9 @@ func (s *Backend) DeleteQueue(ctx context.Context, in *rpc.DeleteQueueRequest) (
 
 // get topic attributes
 func (s *Backend) GetQueue(ctx context.Context, in *rpc.GetQueueRequest) (*rpc.GetQueueResponse, error) {
-	resourceType, err := kafka.ResourceTypeFromString("topic")
+	resourceType, err := confluent.ResourceTypeFromString("topic")
 	queueName := sqs.QueueIdToName(in.Id)
-	results, err := s.admin.DescribeConfigs(ctx, []kafka.ConfigResource{
+	results, err := s.admin.DescribeConfigs(ctx, []confluent.ConfigResource{
 		{
 			Type: resourceType,
 			Name: *queueName,
@@ -143,13 +144,13 @@ func (s *Backend) GetQueue(ctx context.Context, in *rpc.GetQueueRequest) (*rpc.G
 func (s *Backend) PublishMessages(ctx context.Context, in *rpc.PublishMessagesRequest) (*rpc.PublishMessagesResponse, error){
 	resp := &rpc.PublishMessagesResponse{}
 	topic := in.QueueId.String() // use queue id as topic
-	deliveryChan := make(chan kafka.Event, len(in.Messages))
+	deliveryChan := make(chan confluent.Event, len(in.Messages))
 	failed := make([]*rpc.FailedPublish, 0)
 	for _, message := range in.Messages {
-		msg := &kafka.Message{
-			TopicPartition: kafka.TopicPartition{
+		msg := &confluent.Message{
+			TopicPartition: confluent.TopicPartition{
 				Topic:     &topic,
-				Partition: kafka.PartitionAny,
+				Partition: confluent.PartitionAny,
 			},
 			Value: []byte(message.Data),
 		}
@@ -163,7 +164,7 @@ func (s *Backend) PublishMessages(ctx context.Context, in *rpc.PublishMessagesRe
 
 	go func() {
 		e := <-deliveryChan
-		m := e.(*kafka.Message)
+		m := e.(*confluent.Message)
 
 		if m.TopicPartition.Error != nil {
 			fmt.Printf("Delivery failed: %v\n", m.TopicPartition.Error)
@@ -185,7 +186,7 @@ func (s *Backend) AckMessages(ctx context.Context, in *rpc.AckMessagesRequest) (
 	resp := &rpc.AckMessagesResponse{}
 	failed := make([]*rpc.MessageReceipt, 0)
 	topic := in.QueueId.String()
-	commitOffset := make([]kafka.TopicPartition, len(in.Receipts))
+	commitOffset := make([]confluent.TopicPartition, len(in.Receipts))
 	// use queue id as topic
 	for i, receipt := range in.Receipts {
 		partition, err := strconv.ParseInt(receipt.Partition, 10, 32)
@@ -193,10 +194,10 @@ func (s *Backend) AckMessages(ctx context.Context, in *rpc.AckMessagesRequest) (
 		if err != nil {
 			log.Error("parse int32 error", err)
 		}
-		commitOffset[i] = kafka.TopicPartition{
+		commitOffset[i] = confluent.TopicPartition{
 			Topic:     &topic,
 			Partition: int32(partition),
-			Offset:    kafka.Offset(offset),
+			Offset:    confluent.Offset(offset),
 			Metadata:  nil,
 		}
 	}
@@ -269,12 +270,12 @@ func (s *Backend) ModifyQueue(ctx context.Context, in *rpc.ModifyQueueRequest) (
 	panic("implement me")
 }
 
-// purge queue following steps in https://stackoverflow.com/questions/16284399/purge-kafka-topic
+// purge queue following steps in https://stackoverflow.com/questions/16284399/purge-confluent-topic
 func (s *Backend) PurgeQueue(ctx context.Context, in *rpc.PurgeQueueRequest) (*rpc.PurgeQueueResponse, error) {
-	err := s.consumer.Pause([]kafka.TopicPartition{
+	err := s.consumer.Pause([]confluent.TopicPartition{
 		{
 			Topic: sqs.QueueIdToName(in.Id),
-			Partition: kafka.PartitionAny,
+			Partition: confluent.PartitionAny,
 		},
 	})
 	if err != nil {
@@ -302,7 +303,7 @@ func (s *Backend) PurgeQueue(ctx context.Context, in *rpc.PurgeQueueRequest) (*r
 	return &rpc.PurgeQueueResponse{}, nil
 }
 
-// As in a kafka consumer group, a partition can only be consumed by one consumer
+// As in a confluent consumer group, a partition can only be consumed by one consumer
 // msg will not be routed to other consumer unless re-balance, also, group
 // coordinator will maintain heartbeat with consumer in case its failed
 func (s *Backend) ModifyAckDeadline(ctx context.Context, in *rpc.ModifyAckDeadlineRequest) (res *rpc.ModifyAckDeadlineResponse, err error) {
