@@ -3,7 +3,6 @@ package sqs
 import (
 	"context"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	log "github.com/sirupsen/logrus"
 	"github.com/wish/qproxy/config"
 	"github.com/wish/qproxy/gateway"
 	metrics "github.com/wish/qproxy/metrics"
@@ -234,12 +234,24 @@ func (s *Backend) CreateQueue(ctx context.Context, in *rpc.CreateQueueRequest) (
 		value := v
 		attributes[k] = &value
 	}
-	output, err := s.sqs.CreateQueueWithContext(ctx, &sqs.CreateQueueInput{
-		QueueName:  queueName,
-		Attributes: attributes,
-	})
+
+	var output = &sqs.CreateQueueOutput{}
+	var err error
+
+	// when len(attributes) == 0 will lead to MalformedInput error
+	if len(attributes) == 0 {
+		output, err = s.sqs.CreateQueueWithContext(ctx, &sqs.CreateQueueInput{
+			QueueName:  queueName,
+		})
+	} else {
+		output, err = s.sqs.CreateQueueWithContext(ctx, &sqs.CreateQueueInput{
+			QueueName:  queueName,
+			Attributes: attributes,
+		})
+	}
 
 	if err != nil {
+		log.Error(err)
 		return nil, err
 	}
 	s.updateNameMapping(in.Id, output.QueueUrl)

@@ -38,7 +38,7 @@ func NewServer(conf *config.Config) (*QProxyServer, error) {
 		}
 		server.backend = backend
 	case config.Pubsub:
-		return nil, fmt.Errorf("Pubsub not implemented yet")
+		return nil, fmt.Errorf("pubsub not implemented yet")
 	case config.Kafka:
 		backend, err := kafka.New(conf, m)
 		if err != nil {
@@ -46,7 +46,7 @@ func NewServer(conf *config.Config) (*QProxyServer, error) {
 		}
 		server.backend = backend
 	default:
-		return nil, fmt.Errorf("No backend queueing system specified. Please specify a backend")
+		return nil, fmt.Errorf("no backend queueing system specified. Please specify a backend")
 	}
 
 	return &server, nil

@@ -27,6 +27,9 @@ build/qproxy.darwin: ${GOFILES}
 		 -X github.com/xidongc/qproxy.Git=$(GIT)$(DIRTY)" \
 		github.com/wish/qproxy/cmd/qproxy
 
+rpc/qproxy.protoset:
+	protoc --include_imports -I ./third_party/googleapis -I ./rpc --descriptor_set_out=./rpc/qproxy.protoset ./rpc/qproxy.proto
+
 # all .go files are deps, so these are fine specified as such:
 rpc/qproxy.pb.go: ${PGG} ${PGIT} rpc/qproxy.proto
 	@echo "protoc $@"
