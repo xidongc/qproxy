@@ -33,6 +33,14 @@ type Config struct {
 
 	Profile    string `long:"profile" description:"Run a CPUProfile, output a file with this name"`
 	MemProfile string `long:"memprofile" description:"Run a MemProfile, output a file with this name"`
+
+	// TODO Adding Kafka specific settings, better put it in sub command
+	EnableIdempotence    bool    `long:"idempotence" description:"enable idempotence" `
+	Servers              string  `long:"servers" description:"kafka servers to connect" default:"localhost"`
+	QueueStrategy 	     string  `long:"strategy" description:"kafka queue strategy to use" default:"fifo"`
+	AdminTimeoutSeconds  int     `long:"admintimeout" description:"admin timeout in seconds" default:"60"`
+	DefaultNumParts	     int     `long:"parts" description:"partitions number for each topic" default:"3"`
+	DefaultNumReplicas   int     `long:"replicas" description:"replicas number for each topic" default:"3"`
 }
 
 func ParseConfig() *Config {

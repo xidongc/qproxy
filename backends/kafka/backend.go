@@ -6,14 +6,23 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/wish/qproxy/backends/sqs"
 	"github.com/wish/qproxy/config"
+	"github.com/wish/qproxy/gateway"
 	metrics "github.com/wish/qproxy/metrics"
 	"github.com/wish/qproxy/rpc"
 	confluent "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 	_ "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka/librdkafka"
+	"io"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+)
+
+const (
+	DefaultMsgTimeoutMs = 300000
+	RequestRequireAck = -1
+	AutoOffsetReset = "earliest"
 )
 
 type Backend struct {
@@ -26,25 +35,118 @@ type Backend struct {
 	DefaultNumReplicas   int  // Default Number of Replicas for each topic
 	m metrics.QProxyMetrics
 
-	enableIdempotence    bool
 	adminTimeoutSeconds  int
 }
 
-func New(conf *config.Config, mets metrics.QProxyMetrics) (*Backend, error) {
-	_ = confluent.ConfigMap{
-		"enable.idempotence": 	 true,
-		"bootstrap.servers": 	 conf.Region,  // required, use region for now, TODO
-		"group.id":          	 "myGroup",  // required
-		"auto.offset.reset": 	 "earliest",
-		"queuing.strategy":  	 "fifo",
-		"message.timeout.ms":    300000,
-		"request.required.acks": -1,
+// New kafka backend
+func New(conf *config.Config, metrics metrics.QProxyMetrics) (backend *Backend, err error) {
+	kafkaConfig := confluent.ConfigMap{
+		"enable.idempotence": 	 conf.EnableIdempotence,
+		"bootstrap.servers": 	 conf.Servers,  // required
+		"group.id":          	 conf.Region,   // required, TODO use region for now
+		"auto.offset.reset": 	 AutoOffsetReset,
+		"queuing.strategy":  	 conf.QueueStrategy,
+		"message.timeout.ms":    DefaultMsgTimeoutMs,
+		"request.required.acks": RequestRequireAck,
 	}
-	backend := Backend{
-
+	backend = &Backend{}
+	backend.admin, err = confluent.NewAdminClient(&kafkaConfig)
+	if err != nil {
+		log.Errorf("Failed to create Admin client: %s\n", err)
+		return nil, err
 	}
-	return &backend, nil
+	backend.producer, err = confluent.NewProducer(&kafkaConfig)
+	if err != nil {
+		log.Errorf("Failed to create Producer client: %s\n", err)
+		return nil, err
+	}
+	backend.consumer, err = confluent.NewConsumer(&kafkaConfig)
+	if err != nil {
+		log.Errorf("Failed to create Consumer client: %s\n", err)
+		return nil, err
+	}
+	backend.adminTimeoutSeconds = conf.AdminTimeoutSeconds
+	backend.DefaultNumReplicas = conf.DefaultNumReplicas
+	backend.DefaultNumParts = conf.DefaultNumParts
+	backend.m = metrics
+	if conf.MetricsMode {
+		go backend.collectMetrics(conf.MetricsNamespace)
+	}
+	return backend, nil
 }
+
+func (s *Backend) collectMetrics(metricsNamespace string) {
+	directClient := gateway.QProxyDirectClient{s}
+	queues := make([]*rpc.QueueId, 0)
+	collectTicker := time.NewTicker(15 * time.Second)
+	updateTicker := time.NewTicker(5 * time.Minute)
+
+	updateFunc := func() ([]*rpc.QueueId, error) {
+		newQueues := make([]*rpc.QueueId, 0, 1000)
+		ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+		respClient, err := directClient.ListQueues(ctx, &rpc.ListQueuesRequest{
+			Namespace: metricsNamespace,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for {
+			results, err := respClient.Recv()
+			if err == nil {
+				if results == nil {
+					break
+				}
+				newQueues = append(newQueues, results.Queues...)
+			} else {
+				if err == io.EOF {
+					return newQueues, nil
+				}
+				return nil, err
+			}
+		}
+		return newQueues, nil
+	}
+
+	collectFunc := func(id *rpc.QueueId, wg *sync.WaitGroup) {
+		defer wg.Done()
+		ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
+		attrs, err := s.GetQueue(ctx, &rpc.GetQueueRequest{Id: id})
+		if err == nil {
+			queued, err := strconv.ParseInt(attrs.Attributes["ApproximateNumberOfMessages"], 10, 64)
+			if err == nil {
+				s.m.Queued.WithLabelValues(id.Namespace, id.Name).Set(float64(queued))
+			}
+			inflight, err := strconv.ParseInt(attrs.Attributes["ApproximateNumberOfMessagesNotVisible"], 10, 64)
+			if err == nil {
+				s.m.Inflight.WithLabelValues(id.Namespace, id.Name).Set(float64(inflight))
+			}
+		}
+	}
+
+	newQueues, err := updateFunc()
+	if err == nil {
+		queues = newQueues
+	}
+
+	for {
+		select {
+		case <-updateTicker.C:
+			newQueues, err := updateFunc()
+			// TOD: log if err
+			if err == nil {
+				queues = newQueues
+			}
+		case <-collectTicker.C:
+			wg := sync.WaitGroup{}
+			for _, queue := range queues {
+				wg.Add(1)
+				go collectFunc(queue, &wg)
+			}
+			wg.Wait()
+		}
+	}
+}
+
 
 // create confluent topic
 func (s *Backend) CreateQueue(ctx context.Context, in *rpc.CreateQueueRequest) (resp *rpc.CreateQueueResponse, err error) {
