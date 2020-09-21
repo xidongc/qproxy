@@ -13,6 +13,5 @@ cmd/qproxy/qproxy
 *.out
 
 /vendor
-/bin
 .idea/
 /build
