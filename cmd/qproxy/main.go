@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/wish/qproxy"
-	"github.com/wish/qproxy/config"
-	"github.com/wish/qproxy/rpc"
+	"github.com/xidongc/qproxy"
+	"github.com/xidongc/qproxy/config"
+	"github.com/xidongc/qproxy/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"log"

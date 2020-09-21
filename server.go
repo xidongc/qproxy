@@ -3,14 +3,14 @@ package qproxy
 import (
 	"context"
 	"fmt"
-	"github.com/wish/qproxy/backends/kafka"
+	"github.com/xidongc/qproxy/backends/kafka"
 	"log"
 	"time"
 
-	"github.com/wish/qproxy/backends/sqs"
-	"github.com/wish/qproxy/config"
-	qmetrics "github.com/wish/qproxy/metrics"
-	"github.com/wish/qproxy/rpc"
+	"github.com/xidongc/qproxy/backends/sqs"
+	"github.com/xidongc/qproxy/config"
+	qmetrics "github.com/xidongc/qproxy/metrics"
+	"github.com/xidongc/qproxy/rpc"
 )
 
 type QProxyServer struct {

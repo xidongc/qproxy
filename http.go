@@ -8,8 +8,8 @@ import (
 	grpcgw_runtime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/wish/qproxy/gateway"
-	"github.com/wish/qproxy/rpc"
+	"github.com/xidongc/qproxy/gateway"
+	"github.com/xidongc/qproxy/rpc"
 )
 
 // AddRoutes matches a mux with handlers

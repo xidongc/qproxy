@@ -1,4 +1,4 @@
-module github.com/wish/qproxy
+module github.com/xidongc/qproxy
 
 go 1.14
 

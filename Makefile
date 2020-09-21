@@ -7,25 +7,25 @@ PKGS    := $(shell go list ./... | grep -v vendor | grep -v rpc)
 VERSION := $(shell git describe --tags 2> /dev/null || echo "unreleased")
 V_DIRTY := $(shell git describe --exact-match HEAD 2> /dev/null > /dev/null || echo "-unreleased")
 GIT     := $(shell git rev-parse --short HEAD)
-DIRTY   := $(shell git diff-index --quiet HEAD 2> /dev/null > /dev/null || echo "-dirty")
+DIRTY   := $(shell git diff-idex --quiet HEAD 2> /dev/null > /dev/null || echo "-dirty")
 
 GOFILES := $(shell find . -type f | grep go$$ ) rpc/qproxy.pb_ffjson.go rpc/qproxy.pb_jsonpb.go
 
 default: build/qproxy.darwin
 
 build/qproxy.linux: ${GOFILES}
-	@echo "$@"
+	@echo "$
 	@GOOS=linux go build -o build/qproxy.linux -ldflags\
 		"-X github.com/xidongc/qproxy.Version=$(VERSION)$(V_DIRTY) \
 		 -X github.com/xidongc/qproxy.Git=$(GIT)$(DIRTY)" \
-		github.com/wish/qproxy/cmd/qproxy
+		github.com/xidongc/qproxy/cmd/qproxy
 
 build/qproxy.darwin: ${GOFILES}
 	@echo "$@"
 	@GOOS=darwin go build -o build/qproxy.darwin -ldflags\
 		"-X github.com/xidongc/qproxy.Version=$(VERSION)$(V_DIRTY) \
 		 -X github.com/xidongc/qproxy.Git=$(GIT)$(DIRTY)" \
-		github.com/wish/qproxy/cmd/qproxy
+		github.com/xidongc/qproxy/cmd/qproxy
 
 rpc/qproxy.protoset:
 	protoc --include_imports -I ./third_party/googleapis -I ./rpc --descriptor_set_out=./rpc/qproxy.protoset ./rpc/qproxy.proto
@@ -58,7 +58,7 @@ rpc/qproxy.pb_jsonpb.go: rpc/qproxy.pb_ffjson.go
 
 .PHONY: coverage
 coverage:
-	@go test -coverprofile=/tmp/cover github.com/wish/qproxy
+	@go test -coverprofile=/tmp/cover github.com/xidongc/qproxy
 	@go tool cover -html=/tmp/cover -o coverage.html
 	@rm /tmp/cover
 

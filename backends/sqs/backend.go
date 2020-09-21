@@ -13,10 +13,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	log "github.com/sirupsen/logrus"
-	"github.com/wish/qproxy/config"
-	"github.com/wish/qproxy/gateway"
-	metrics "github.com/wish/qproxy/metrics"
-	"github.com/wish/qproxy/rpc"
+	"github.com/xidongc/qproxy/config"
+	"github.com/xidongc/qproxy/gateway"
+	metrics "github.com/xidongc/qproxy/metrics"
+	"github.com/xidongc/qproxy/rpc"
 )
 
 type Backend struct {
